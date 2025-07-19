@@ -75,7 +75,7 @@ jobs:
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: "ShineSpot API Health Check 🩺"
-          to: your_email@example.com
+          to: ${{ secrets.SMTP_USERNAME }}
           from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
           content_type: text/html
           body: ${{ steps.report.outputs.html }}
