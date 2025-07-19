@@ -1,0 +1,81 @@
+name: Random Interval Pinger
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Random Delay (simulate random interval)
+        run: |
+          RANDOM_SLEEP=$((RANDOM % 271))
+          echo "Sleeping for $RANDOM_SLEEP seconds..."
+          sleep $RANDOM_SLEEP
+
+      - name: Run health checks in parallel with retry
+        id: health
+        run: |
+          set -e
+
+          declare -A endpoints=(
+            ["Global"]="https://shinespot-api.onrender.com/health"
+            ["Customers"]="https://shinespot-api.onrender.com/api/customers/health"
+            ["Products"]="https://shinespot-api.onrender.com/api/products/health"
+            ["Orders"]="https://shinespot-api.onrender.com/api/orders/health"
+            ["Auth"]="https://shinespot-api.onrender.com/api/auth/health"
+          )
+
+          mkdir -p status
+
+          ping_with_retry() {
+            local name=$1
+            local url=$2
+            local max_retries=3
+            local delay=5
+
+            for ((i=1; i<=max_retries; i++)); do
+              response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+              if [ "$response" = "200" ]; then
+                echo "<tr><td>$name</td><td style='color:green;'>✅ Passed</td></tr>" >> status/result.html
+                return 0
+              fi
+              sleep $delay
+            done
+
+            echo "<tr><td>$name</td><td style='color:red;'>❌ Failed</td></tr>" >> status/result.html
+            return 1
+          }
+
+          echo "<html><body><h2>ShineSpot API Health Report</h2><table border='1' cellpadding='8' cellspacing='0'><tr><th>Service</th><th>Status</th></tr>" > status/result.html
+
+          for name in "${!endpoints[@]}"; do
+            ping_with_retry "$name" "${endpoints[$name]}" &
+          done
+
+          wait
+
+          echo "</table><p>Run time: $(date -u)</p></body></html>" >> status/result.html
+
+      - name: Read HTML content
+        id: report
+        run: |
+          echo "html<<EOF" >> $GITHUB_OUTPUT
+          cat status/result.html >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Email Report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "ShineSpot API Health Check 🩺"
+          to: your_email@example.com
+          from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
+          content_type: text/html
+          body: ${{ steps.report.outputs.html }}
