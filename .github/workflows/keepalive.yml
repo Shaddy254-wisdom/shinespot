@@ -22,7 +22,7 @@ jobs:
           set -e
 
           declare -A endpoints=(
-            ["Frontend Status Page"]="https://shinespot-marketplace.vercel.app/admin/status"
+            ["Frontend Status Page"]="https://shinespot-marketplace.vercel.app"
             ["Global API"]="https://shinespot-api.onrender.com/health"
             ["Customers API"]="https://shinespot-api.onrender.com/api/customers/health"
             ["Products API"]="https://shinespot-api.onrender.com/api/products/health"
