@@ -22,14 +22,18 @@ jobs:
           set -e
 
           declare -A endpoints=(
-            ["Global"]="https://shinespot-api.onrender.com/health"
-            ["Customers"]="https://shinespot-api.onrender.com/api/customers/health"
-            ["Products"]="https://shinespot-api.onrender.com/api/products/health"
-            ["Orders"]="https://shinespot-api.onrender.com/api/orders/health"
-            ["Auth"]="https://shinespot-api.onrender.com/api/auth/health"
+            ["Frontend Status Page"]="https://shinespot-marketplace.vercel.app/admin/status"
+            ["Global API"]="https://shinespot-api.onrender.com/health"
+            ["Customers API"]="https://shinespot-api.onrender.com/api/customers/health"
+            ["Products API"]="https://shinespot-api.onrender.com/api/products/health"
+            ["Orders API"]="https://shinespot-api.onrender.com/api/orders/health"
+            ["Auth API"]="https://shinespot-api.onrender.com/api/auth/health"
           )
 
           mkdir -p status
+          touch status/result.txt
+
+          has_failure=0
 
           ping_with_retry() {
             local name=$1
@@ -40,17 +44,20 @@ jobs:
             for ((i=1; i<=max_retries; i++)); do
               response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
               if [ "$response" = "200" ]; then
-                echo "<tr><td>$name</td><td style='color:green;'>✅ Passed</td></tr>" >> status/result.html
+                echo "✅ $name: Passed" >> status/result.txt
                 return 0
               fi
               sleep $delay
             done
 
-            echo "<tr><td>$name</td><td style='color:red;'>❌ Failed</td></tr>" >> status/result.html
+            echo "❌ $name: Failed" >> status/result.txt
+            has_failure=1
             return 1
           }
 
-          echo "<html><body><h2>ShineSpot API Health Report</h2><table border='1' cellpadding='8' cellspacing='0'><tr><th>Service</th><th>Status</th></tr>" > status/result.html
+          echo "ShineSpot Health Report" > status/result.txt
+          echo "Run time: $(date -u)" >> status/result.txt
+          echo "----------------------------" >> status/result.txt
 
           for name in "${!endpoints[@]}"; do
             ping_with_retry "$name" "${endpoints[$name]}" &
@@ -58,24 +65,27 @@ jobs:
 
           wait
 
-          echo "</table><p>Run time: $(date -u)</p></body></html>" >> status/result.html
+          echo "has_failure=$has_failure" >> $GITHUB_ENV
 
-      - name: Read HTML content
+      - name: Read report content
         id: report
         run: |
-          echo "html<<EOF" >> $GITHUB_OUTPUT
-          cat status/result.html >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "body<<EOF"
+            cat status/result.txt
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
-      - name: Send Email Report
+      - name: Send Email Report (only on failure)
+        if: env.has_failure == '1'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 587
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "ShineSpot API Health Check 🩺"
+          subject: "❌ ShineSpot Health Check Failed"
           to: ${{ secrets.SMTP_USERNAME }}
           from: GitHub Actions <${{ secrets.SMTP_USERNAME }}>
-          content_type: text/html
-          body: ${{ steps.report.outputs.html }}
+          content_type: text/plain
+          body: ${{ steps.report.outputs.body }}
