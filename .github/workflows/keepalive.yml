@@ -28,6 +28,8 @@ jobs:
             ["Products API"]="https://shinespot-api.onrender.com/api/products/health"
             ["Orders API"]="https://shinespot-api.onrender.com/api/orders/health"
             ["Auth API"]="https://shinespot-api.onrender.com/api/auth/health"
+            ["WhatsApp Bot"]="https://whatsapp-bot-uh5a.onrender.com"
+            ["Bailey Bot"]="https://bot-bailey.onrender.com"
           )
 
           mkdir -p status
