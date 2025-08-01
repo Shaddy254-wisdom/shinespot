@@ -2,7 +2,7 @@ name: Random Interval Pinger
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Every 10 minutes
+    - cron: "*/10 * * * *" # Every 10 minutes
   workflow_dispatch:
 
 jobs:
@@ -28,12 +28,14 @@ jobs:
             ["Products API"]="https://shinespot-api.onrender.com/api/products/health"
             ["Orders API"]="https://shinespot-api.onrender.com/api/orders/health"
             ["Auth API"]="https://shinespot-api.onrender.com/api/auth/health"
-            ["WhatsApp Bot"]="https://whatsapp-bot-uh5a.onrender.com"
-            ["Bailey Bot"]="https://bot-bailey.onrender.com"
+            ["WhatsApp Bot"]="https://whatsapp-bot-uh5a.onrender.com/health"
+            ["Bailey Bot"]="https://bot-bailey.onrender.com/ping"
           )
 
           mkdir -p status
-          touch status/result.txt
+          echo "📋 ShineSpot Health Report" > status/result.txt
+          echo "Run time: $(date -u)" >> status/result.txt
+          echo "----------------------------------------" >> status/result.txt
 
           has_failure=0
 
@@ -45,21 +47,17 @@ jobs:
 
             for ((i=1; i<=max_retries; i++)); do
               response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
-              if [ "$response" = "200" ]; then
+              if [ "$response" == "200" ]; then
                 echo "✅ $name: Passed" >> status/result.txt
                 return 0
               fi
               sleep $delay
             done
 
-            echo "❌ $name: Failed" >> status/result.txt
+            echo "❌ $name: Failed (URL: $url)" >> status/result.txt
             has_failure=1
             return 1
           }
-
-          echo "ShineSpot Health Report" > status/result.txt
-          echo "Run time: $(date -u)" >> status/result.txt
-          echo "----------------------------" >> status/result.txt
 
           for name in "${!endpoints[@]}"; do
             ping_with_retry "$name" "${endpoints[$name]}" &
